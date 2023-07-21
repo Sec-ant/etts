@@ -1,0 +1,51 @@
+{
+  "name": "etts",
+  "private": false,
+  "version": "0.0.3",
+  "type": "module",
+  "files": [
+    "./dist/**/*"
+  ],
+  "main": "./dist/lib/index.js",
+  "bin": "./dist/bin/main.js",
+  "exports": {
+    "import": "./dist/lib/index.js",
+    "types": "./dist/lib/index.d.ts",
+    "node": "./dist/lib/index.js",
+    "default": "./dist/lib/index.js"
+  },
+  "scripts": {
+    "clean": "rm -fr ./dist/*",
+    "prepare": "bun ./scripts/prepare.ts",
+    "prebuild:refetch": "bun run prepare",
+    "prebuild": "bun x tsc && bun run clean && bun x tsc --project ./tsconfig.build.json",
+    "build": "bun ./scripts/build.ts",
+    "build:refetch": "bun run build",
+    "start": "bun ./src/bin/main.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Sec-ant/etts"
+  },
+  "homepage": "https://github.com/Sec-ant/etts",
+  "bugs": {
+    "url": "https://github.com/Sec-ant/etts/issues"
+  },
+  "author": "Ze-Zheng Wu",
+  "keywords": [
+    "edge-tts",
+    "tts",
+    "typescript",
+    "bun"
+  ],
+  "devDependencies": {
+    "bun-types": "latest",
+    "prettier": "^3.0.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "assert-never": "^1.2.1"
+  }
+}
