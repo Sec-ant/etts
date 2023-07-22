@@ -18,6 +18,7 @@ const ssmlOptions: Partial<SSMLOptions> = {
 
 const maxByteLength = await calculateMaxMessageSize(ssmlOptions);
 
+let count = 0;
 for await (const chunk of parseMessage(
   communicate(
     makeRequests(
@@ -32,5 +33,6 @@ for await (const chunk of parseMessage(
     )
   )
 )) {
-  console.log(chunk);
+  console.log(`${count}. message received: ${chunk.type}`);
+  ++count;
 }

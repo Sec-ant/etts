@@ -4,4 +4,4 @@
 
 ## 🚧 Heavily WIP 🚧
 
-This is still under heavliy development, not usable right now.
+This is still under heavy development, not usable right now.
