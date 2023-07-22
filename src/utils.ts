@@ -10,6 +10,7 @@ import {
   WSS_HEADERS,
 } from "./constants.js";
 import { Voice, Name } from "./voice.js";
+import { WebSocket } from "./stubs/ws-bun.js";
 
 export function getID() {
   return crypto.randomUUID().replaceAll("-", "");
@@ -434,16 +435,17 @@ export async function* communicate(
 export async function* parseMessage(
   input: AsyncIterable<Message> | Iterable<Message>
 ) {
-  // @ts-ignore
   let downloadAudio = false;
-  // @ts-ignore
-  let audioReceived = false;
-  for await (const chunk of input) {
-    if (!chunk.isBinary) {
-      const [headers, body] = parseTextResponse(chunk.data);
+  for await (const { isBinary, data } of input) {
+    if (!isBinary) {
+      const [headers] = parseTextResponse(data);
       switch (headers.Path) {
         case "turn.start":
           downloadAudio = true;
+          yield {
+            type: "headers",
+            data: headers,
+          };
           break;
         case "turn.end":
           downloadAudio = false;
@@ -451,13 +453,33 @@ export async function* parseMessage(
         case "response":
           break;
         case "audio.metadata":
-          // @ts-ignore
-          for (const metadata of body as MetadataTypeBody) {
-          }
           break;
         default:
           assertNever(headers.Path);
       }
+    } else {
+      if (!downloadAudio) {
+        throw new Error("Unexpected binary message.");
+      }
+      if (data.byteLength < 2) {
+        throw new Error(
+          "Invalid binary message format. Header length missing."
+        );
+      }
+
+      const dataView = new DataView(data);
+      const headerLength = dataView.getUint16(0);
+
+      if (data.byteLength < headerLength + 2) {
+        throw new Error(
+          "Invalid binary message format. Header content missing."
+        );
+      }
+
+      yield {
+        type: "audio",
+        data: new Uint8Array(data, 2 + headerLength),
+      };
     }
   }
 }

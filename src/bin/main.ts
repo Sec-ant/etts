@@ -5,12 +5,12 @@ import {
   escapeXML,
   makeRequests,
   makeSSML,
-  parseTextResponse,
   replaceIncompats,
   smartSplit,
+  parseMessage,
 } from "../utils.js";
 
-const input = "123&456";
+const input = "123123123123123123123123123123123123123123123123";
 
 const ssmlOptions: Partial<SSMLOptions> = {
   voice: "Microsoft Server Speech Text to Speech Voice (zh-CN, XiaoxiaoNeural)",
@@ -18,21 +18,19 @@ const ssmlOptions: Partial<SSMLOptions> = {
 
 const maxByteLength = await calculateMaxMessageSize(ssmlOptions);
 
-for await (const chunk of communicate(
-  makeRequests(
-    makeSSML(
-      smartSplit(escapeXML(replaceIncompats([input])), {
-        maxByteLength,
-        isEscaped: true,
-        granularity: "word",
-      }),
-      ssmlOptions
+for await (const chunk of parseMessage(
+  communicate(
+    makeRequests(
+      makeSSML(
+        smartSplit(escapeXML(replaceIncompats([input])), {
+          maxByteLength,
+          isEscaped: true,
+          granularity: "word",
+        }),
+        ssmlOptions
+      )
     )
   )
 )) {
-  if (!chunk.isBinary) {
-    console.log(parseTextResponse(chunk.data));
-  } else {
-    console.log(chunk);
-  }
+  console.log(chunk);
 }

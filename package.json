@@ -15,12 +15,13 @@
     "default": "./dist/lib/index.js"
   },
   "scripts": {
-    "clean": "rm -fr ./dist/*",
+    "clean": "rm -fr ./dist/bun/*",
     "prepare": "bun ./scripts/prepare.ts",
     "prebuild:refetch": "bun run prepare",
     "prebuild": "bun x tsc && bun run clean && bun x tsc --project ./tsconfig.build.json",
     "build": "bun ./scripts/build.ts",
     "build:refetch": "bun run build",
+    "build:node": "bun x vite build",
     "start": "bun ./src/bin/main.ts"
   },
   "repository": {
@@ -39,6 +40,7 @@
     "bun"
   ],
   "devDependencies": {
+    "@types/ws": "^8.5.5",
     "bun-types": "latest",
     "prettier": "^3.0.0"
   },
@@ -46,6 +48,10 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "assert-never": "^1.2.1"
+    "assert-never": "^1.2.1",
+    "html-entities": "^2.4.0",
+    "pdfjs-dist": "^3.8.162",
+    "vite": "latest",
+    "ws": "^8.13.0"
   }
 }
