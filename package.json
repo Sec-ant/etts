@@ -6,13 +6,31 @@
   "files": [
     "./dist/**/*"
   ],
-  "main": "./dist/lib/index.js",
-  "bin": "./dist/bin/main.js",
+  "main": "./dist/node/lib/index.js",
+  "bin": {
+    "etts": "./dist/node/bin/main.js",
+    "netts": "./dist/node/bin/main.js",
+    "betts": "./dist/bun/bin/main.js"
+  },
   "exports": {
-    "import": "./dist/lib/index.js",
-    "types": "./dist/lib/index.d.ts",
-    "node": "./dist/lib/index.js",
-    "default": "./dist/lib/index.js"
+    ".": {
+      "import": "./dist/node/lib/index.js",
+      "types": "./dist/node/lib/index.d.ts",
+      "node": "./dist/node/lib/index.js",
+      "default": "./dist/node/lib/index.js"
+    },
+    "./node": {
+      "import": "./dist/node/lib/index.js",
+      "types": "./dist/node/lib/index.d.ts",
+      "node": "./dist/node/lib/index.js",
+      "default": "./dist/node/lib/index.js"
+    },
+    "./bun": {
+      "import": "./dist/bun/lib/index.js",
+      "types": "./dist/bun/lib/index.d.ts",
+      "node": "./dist/bun/lib/index.js",
+      "default": "./dist/bun/lib/index.js"
+    }
   },
   "scripts": {
     "prepare": "bun ./scripts/prepare.ts",
@@ -24,6 +42,7 @@
     "build": "bun run build:bun && bun run build:node",
     "prebuild:refetch": "bun run prepare",
     "build:refetch": "bun run build",
+    "bin:node": "bun run ./dist/bin",
     "start": "bun ./src/bin/main.ts"
   },
   "repository": {
