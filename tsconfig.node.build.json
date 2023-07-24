@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.bun.build.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "outDir": "./dist/node"
+  },
+  "exclude": ["./src/stubs/bun.ts", "./src/bin/*"]
+}

@@ -1,7 +1,5 @@
-import { encode } from "html-entities";
+import { escapeHTML } from "bun";
 
-export function escapeHTML(input: string): string {
-  return encode(input, {
-    level: "xml",
-  });
-}
+const WebSocketBun = WebSocket;
+
+export { WebSocketBun as WebSocket, escapeHTML as escapeXML };

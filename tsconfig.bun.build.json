@@ -6,5 +6,6 @@
     "emitDeclarationOnly": true,
     "outDir": "./dist/bun"
   },
-  "include": ["./src"]
+  "include": ["./src"],
+  "exclude": ["./src/stubs/node.ts", "./src/bin/*"]
 }

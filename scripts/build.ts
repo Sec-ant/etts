@@ -6,5 +6,4 @@ await build({
   target: "bun",
   format: "esm",
   minify: true,
-  // splitting: true,
 });

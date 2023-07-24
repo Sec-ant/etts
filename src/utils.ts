@@ -1,4 +1,3 @@
-import { escapeHTML } from "bun";
 import { assertNever } from "assert-never";
 import {
   VOICE_LIST_URL,
@@ -10,7 +9,7 @@ import {
   WSS_HEADERS,
 } from "./constants.js";
 import { Voice, Name } from "./voice.js";
-import { WebSocket } from "./stubs/ws-bun.js";
+import { WebSocket, escapeXML as escapeXMLString } from "./stubs/bun.js";
 
 export function getID() {
   return crypto.randomUUID().replaceAll("-", "");
@@ -169,7 +168,7 @@ export async function* escapeXML(
   input: AsyncIterable<string> | Iterable<string>
 ) {
   for await (const chunk of input) {
-    yield escapeHTML(chunk);
+    yield escapeXMLString(chunk);
   }
 }
 
