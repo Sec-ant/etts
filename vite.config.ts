@@ -1,6 +1,7 @@
 import { builtinModules } from "module";
 import { defineConfig } from "vite";
 import dts from "vite-plugin-dts";
+import { transform } from "esbuild";
 
 export default defineConfig({
   build: {
@@ -24,6 +25,7 @@ export default defineConfig({
         },
       },
     },
+    minify: false,
   },
   resolve: {
     alias: {
@@ -36,6 +38,18 @@ export default defineConfig({
     "process.env.WS_NO_UTF_8_VALIDATE": true,
   },
   plugins: [
+    {
+      name: "minifyEsm",
+      renderChunk: {
+        order: "post",
+        handler: async (code, _, { format }) => {
+          if (format === "es") {
+            return await transform(code, { minify: true });
+          }
+          return code;
+        },
+      },
+    },
     dts({
       tsconfigPath: "./tsconfig.node.build.json",
     }),
