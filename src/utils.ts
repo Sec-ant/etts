@@ -18,7 +18,7 @@ export function getID() {
 export function getDateTime() {
   const parts: Partial<Intl.DateTimeFormatPartTypesRegistry> = {};
 
-  Intl.DateTimeFormat("cn", {
+  Intl.DateTimeFormat("en", {
     weekday: "short",
     month: "short",
     day: "2-digit",
@@ -190,14 +190,18 @@ export async function* decodeText(
   }
 }
 
+// https://learn.microsoft.com/en-us/azure/ai-services/speech-service/speech-synthesis-markup-voice#adjust-prosody
+
 type Digit = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9";
 
-export type Rate = `${"+" | "-"}${
+export type Rate =
+  | `-${Digit | `${"1" | "2" | "3" | "4"}${Digit}` | "50"}%`
+  | `${"+"}${Digit | `${Exclude<Digit, "0">}${Digit}` | "100"}%`;
+
+export type Volume = `${"+" | "-"}${
   | Digit
   | `${Exclude<Digit, "0">}${Digit}`
   | `${Exclude<Digit, "0">}${Digit}${Digit}`}%`;
-
-export type Volume = Rate;
 
 export interface SSMLOptions {
   voice: Name;
@@ -409,7 +413,7 @@ export async function* communicate(
 
   ws.addEventListener("error", async (e) => {
     await writer.abort(e);
-    ws.close(undefined, e.toString());
+    ws.close(1011, e.toString());
   });
 
   ws.addEventListener("open", async () => {
@@ -424,6 +428,10 @@ export async function* communicate(
     } else {
       await writer.write({ isBinary: false, data: data as string });
     }
+  });
+
+  ws.addEventListener("ping", () => {
+    ws.pong();
   });
 
   for await (const chunk of readable) {
