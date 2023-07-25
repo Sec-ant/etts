@@ -5,6 +5,8 @@ import { format } from "prettier";
 
 const voices = await listVoices();
 
+// TODO: language to default voice: https://github.com/microsoft/cognitive-services-speech-sdk-js/blob/e20e0650f8b61d0374f863e5fbc084cf1681a714/src/sdk/SpeechSynthesizer.ts#L216C15-L216C37
+// TODO: short name, friendly name to full name
 const voicesFile = await format(
   `
 /**

@@ -1,6 +1,6 @@
 export { WebSocket } from "ws";
 
-export function escapeXML(input: string): string {
+export function escapeXml(input: string): string {
   return input
     .replace(/&/g, "&amp;")
     .replace(/"/g, "&quot;")

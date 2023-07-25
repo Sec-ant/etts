@@ -1,39 +1,49 @@
 #!/usr/bin/env bun
 import {
-  SSMLOptions,
+  SsmlOptions,
   calculateMaxMessageSize,
   communicate,
-  escapeXML,
-  makeRequests,
-  makeSSML,
+  escapeXml,
+  makeRequestGroups,
+  makeSsml,
   replaceIncompats,
   smartSplit,
-  parseMessage,
 } from "../utils.js";
 
-const input = "123123123123123123123123123123123123123123123123";
+const input = `Bun is an all-in-one toolkit for JavaScript and TypeScript apps. It ships as a single executable called bun.
 
-const ssmlOptions: Partial<SSMLOptions> = {
+At its core is the Bun runtime, a fast JavaScript runtime designed as a drop-in replacement for Node.js. It's written in Zig and powered by JavaScriptCore under the hood, dramatically reducing startup times and memory usage.`;
+
+const ssmlOptions: Partial<SsmlOptions> = {
   voice: "Microsoft Server Speech Text to Speech Voice (zh-CN, XiaoxiaoNeural)",
 };
 
 const maxByteLength = await calculateMaxMessageSize(ssmlOptions);
 
-let count = 0;
-for await (const chunk of parseMessage(
-  communicate(
-    makeRequests(
-      makeSSML(
-        smartSplit(escapeXML(replaceIncompats([input])), {
-          maxByteLength,
-          isEscaped: true,
-          granularity: "word",
-        }),
-        ssmlOptions
-      )
+const iterator = communicate(
+  makeRequestGroups(
+    makeSsml(
+      smartSplit(escapeXml(replaceIncompats([input])), {
+        maxByteLength,
+        isEscaped: true,
+        granularity: "word",
+      }),
+      ssmlOptions
     )
   )
-)) {
-  console.log(`${count}. message received: ${chunk.type}`);
-  ++count;
+);
+
+for await (const chunk of iterator) {
+  console.log(
+    chunk.isBinary
+      ? JSON.stringify({ headers: chunk.headers }, undefined, 2)
+      : JSON.stringify(
+          {
+            headers: chunk.headers,
+            body: chunk.body,
+          },
+          undefined,
+          2
+        )
+  );
 }

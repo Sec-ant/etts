@@ -9,9 +9,9 @@ import {
   WSS_HEADERS,
 } from "./constants.js";
 import { Voice, Name } from "./voice.js";
-import { WebSocket, escapeXML as escapeXMLString } from "./stubs/bun.js";
+import { WebSocket, escapeXml as escapeXmlString } from "./stubs/bun.js";
 
-export function getID() {
+export function getId() {
   return crypto.randomUUID().replaceAll("-", "");
 }
 
@@ -67,13 +67,13 @@ export function makeSpeechConfigRequest(
   );
 }
 
-export function makeSSMLRequest(
+export function makeSsmlRequest(
   chunk: string,
   {
-    requestId = getID(),
+    requestId = getId(),
     timestamp = getDateTime(),
   }: Partial<RequestOptions> = {
-    requestId: getID(),
+    requestId: getId(),
     timestamp: getDateTime(),
   }
 ) {
@@ -87,13 +87,13 @@ export function makeSSMLRequest(
 }
 
 export async function calculateMaxMessageSize({
-  voice = defaultSSMLOptions.voice,
-  rate = defaultSSMLOptions.rate,
-  volume = defaultSSMLOptions.volume,
-}: Partial<SSMLOptions> = defaultSSMLOptions) {
+  voice = defaultSsmlOptions.voice,
+  rate = defaultSsmlOptions.rate,
+  volume = defaultSsmlOptions.volume,
+}: Partial<SsmlOptions> = defaultSsmlOptions) {
   let bytes = "";
-  for await (const chunk of makeSSML("", { voice, rate, volume })) {
-    bytes += makeSSMLRequest(chunk);
+  for await (const chunk of makeSsml("", { voice, rate, volume })) {
+    bytes += makeSsmlRequest(chunk);
   }
   return (
     WEBSOCKET_MAX_SIZE -
@@ -136,7 +136,8 @@ export interface ReponseTypeBody extends TurnStartTypeBody {
 
 export interface ResponseHeaders {
   "X-RequestId": string;
-  "Content-Type": string;
+  "X-StreamId"?: string;
+  "Content-Type"?: string;
   Path: Path;
 }
 
@@ -146,14 +147,18 @@ export type ResponseBody =
   | MetadataTypeBody
   | {};
 
+export function parseHeaders(data: string) {
+  return Object.fromEntries(
+    data
+      .trim()
+      .split("\r\n")
+      .map((line) => line.split(/\s*:\s*/))
+  ) as ResponseHeaders;
+}
+
 export function parseTextResponse(data: string) {
   const [headers, body] = data.split("\r\n\r\n");
-  return [
-    Object.fromEntries(
-      headers.split("\r\n").map((line) => line.split(/\s*:\s*/))
-    ) as ResponseHeaders,
-    JSON.parse(body) as ResponseBody,
-  ] as const;
+  return [parseHeaders(headers), JSON.parse(body) as ResponseBody] as const;
 }
 
 export async function* replaceIncompats(
@@ -164,11 +169,11 @@ export async function* replaceIncompats(
   }
 }
 
-export async function* escapeXML(
+export async function* escapeXml(
   input: AsyncIterable<string> | Iterable<string>
 ) {
   for await (const chunk of input) {
-    yield escapeXMLString(chunk);
+    yield escapeXmlString(chunk);
   }
 }
 
@@ -203,25 +208,25 @@ export type Volume = `${"+" | "-"}${
   | `${Exclude<Digit, "0">}${Digit}`
   | `${Exclude<Digit, "0">}${Digit}${Digit}`}%`;
 
-export interface SSMLOptions {
+export interface SsmlOptions {
   voice: Name;
   rate: Rate;
   volume: Volume;
 }
 
-export const defaultSSMLOptions: SSMLOptions = {
+export const defaultSsmlOptions: SsmlOptions = {
   voice: "Microsoft Server Speech Text to Speech Voice (cy-GB, NiaNeural)",
   rate: "+0%",
   volume: "+0%",
 };
 
-export async function* makeSSML(
+export async function* makeSsml(
   input: AsyncIterable<string> | Iterable<string>,
   {
-    voice = defaultSSMLOptions.voice,
-    rate = defaultSSMLOptions.rate,
-    volume = defaultSSMLOptions.volume,
-  }: Partial<SSMLOptions> = defaultSSMLOptions
+    voice = defaultSsmlOptions.voice,
+    rate = defaultSsmlOptions.rate,
+    volume = defaultSsmlOptions.volume,
+  }: Partial<SsmlOptions> = defaultSsmlOptions
 ) {
   for await (const chunk of input) {
     yield `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'><voice name='${voice}'><prosody pitch='+0Hz' rate='${rate}' volume='${volume}'>${chunk}</prosody></voice></speak>`;
@@ -233,19 +238,24 @@ export interface RequestOptions {
   timestamp: string;
 }
 
-export async function* makeRequests(
-  input: AsyncIterable<string> | Iterable<string>,
-  {
-    requestId = getID(),
-    timestamp = getDateTime(),
-  }: Partial<RequestOptions> = {
-    requestId: getID(),
-    timestamp: getDateTime(),
-  }
+export interface RequestGroup {
+  id: string;
+  requests: [string, string];
+}
+
+export async function* makeRequestGroups(
+  input: AsyncIterable<string> | Iterable<string>
 ) {
   for await (const chunk of input) {
-    yield makeSpeechConfigRequest({ timestamp });
-    yield makeSSMLRequest(chunk, { requestId, timestamp });
+    const requestId = getId();
+    const timestamp = getDateTime();
+    yield {
+      id: requestId,
+      requests: [
+        makeSpeechConfigRequest({ timestamp }),
+        makeSsmlRequest(chunk, { requestId, timestamp }),
+      ],
+    } as RequestGroup;
   }
 }
 
@@ -388,74 +398,124 @@ export async function* smartSplit(
 export type Message =
   | {
       isBinary: true;
-      data: ArrayBuffer;
+      headers: ResponseHeaders;
+      body: Uint8Array;
     }
   | {
       isBinary: false;
-      data: string;
+      headers: ResponseHeaders;
+      body: ResponseBody;
     };
 
 export async function* communicate(
-  input: AsyncIterable<string> | Iterable<string>
+  input: AsyncIterable<RequestGroup> | Iterable<RequestGroup>
 ) {
+  // create a new web socket
   const websocketUrl = new URL(WSS_URL);
-  websocketUrl.searchParams.set("ConnectionId", getID());
-
+  websocketUrl.searchParams.set("ConnectionId", getId());
   const ws = new WebSocket(websocketUrl, {
     headers: WSS_HEADERS,
   });
-
   ws.binaryType = "arraybuffer";
-
+  // create a transform stream to yield results in callback functions
   const transformStream = new TransformStream<Message, Message>();
   const { writable, readable } = transformStream;
   const writer = writable.getWriter();
-
+  // acquire the input iterator
+  const iterator =
+    (input as AsyncIterable<RequestGroup>)[Symbol.asyncIterator]() ||
+    (input as Iterable<RequestGroup>)[Symbol.iterator]();
+  // flags to check for unexpected messages
+  let downloadAudio = false;
+  let requestId: string;
+  // error handler
+  // is this handler necessary?
+  // https://stackoverflow.com/questions/38181156/websockets-is-an-error-event-always-followed-by-a-close-event
   ws.addEventListener("error", async (e) => {
     await writer.abort(e);
-    ws.close(1011, e.toString());
   });
-
-  ws.addEventListener("open", async () => {
-    for await (const chunk of input) {
-      ws.send(chunk);
-    }
-  });
-
-  ws.addEventListener("message", async ({ data }) => {
-    if (data instanceof ArrayBuffer) {
-      await writer.write({ isBinary: true, data });
+  // close handler
+  ws.addEventListener("close", async ({ code, reason }) => {
+    // TODO: handle 1006 properly
+    // TODO: maybe we should close or abort writer earlier, not in ws close handler
+    if (code === 1000 || code === 1006) {
+      await writer.close();
     } else {
-      await writer.write({ isBinary: false, data: data as string });
+      await writer.abort(reason);
     }
   });
-
-  ws.addEventListener("ping", () => {
-    ws.pong();
+  // open handler
+  ws.addEventListener("open", async () => {
+    const { value, done } = await iterator.next();
+    if (!done) {
+      const { id, requests } = value;
+      requestId = id;
+      for (const request of requests) {
+        ws.send(request);
+      }
+    } else {
+      ws.close(1000, "No values to be sent.");
+    }
   });
-
-  for await (const chunk of readable) {
-    yield chunk;
-  }
-}
-
-export async function* parseMessage(
-  input: AsyncIterable<Message> | Iterable<Message>
-) {
-  let downloadAudio = false;
-  for await (const { isBinary, data } of input) {
-    if (!isBinary) {
-      const [headers] = parseTextResponse(data);
+  // message handler
+  ws.addEventListener("message", async ({ data }) => {
+    // binary message
+    if (data instanceof ArrayBuffer) {
+      if (!downloadAudio) {
+        ws.close(4000, "Unexpected binary message.");
+      }
+      if (data.byteLength < 2) {
+        ws.close(4001, "Invalid binary message format. Header length missing.");
+      }
+      const dataView = new DataView(data);
+      const headerLength = dataView.getUint16(0);
+      if (data.byteLength < headerLength + 2) {
+        ws.close(
+          4002,
+          "Invalid binary message format. Header content missing."
+        );
+      }
+      const textDecoder = new TextDecoder();
+      const headers = parseHeaders(
+        textDecoder.decode(new Uint8Array(data, 2, headerLength))
+      );
+      if (headers["X-RequestId"] !== requestId) {
+        ws.close(4003, "Unexpected X-RequestId.");
+      }
+      const body = new Uint8Array(data, 2 + headerLength);
+      await writer.write({
+        isBinary: true,
+        headers,
+        body,
+      });
+    }
+    // non-binary message
+    else {
+      const [headers, body] = parseTextResponse(data as string);
+      if (headers["X-RequestId"] !== requestId) {
+        ws.close(4003, "Unexpected X-RequestId.");
+      }
+      await writer.write({
+        isBinary: false,
+        headers,
+        body,
+      });
       switch (headers.Path) {
         case "turn.start":
           downloadAudio = true;
-          yield {
-            type: "headers",
-            data: headers,
-          };
           break;
         case "turn.end":
           downloadAudio = false;
+          const { value, done } = await iterator.next();
+          if (!done) {
+            const { id, requests } = value;
+            requestId = id;
+            for (const request of requests) {
+              ws.send(request);
+            }
+          } else {
+            ws.close(1000, "No values to be sent");
+          }
           break;
         case "response":
           break;
@@ -464,29 +524,14 @@ export async function* parseMessage(
         default:
           assertNever(headers.Path);
       }
-    } else {
-      if (!downloadAudio) {
-        throw new Error("Unexpected binary message.");
-      }
-      if (data.byteLength < 2) {
-        throw new Error(
-          "Invalid binary message format. Header length missing."
-        );
-      }
-
-      const dataView = new DataView(data);
-      const headerLength = dataView.getUint16(0);
-
-      if (data.byteLength < headerLength + 2) {
-        throw new Error(
-          "Invalid binary message format. Header content missing."
-        );
-      }
-
-      yield {
-        type: "audio",
-        data: new Uint8Array(data, 2 + headerLength),
-      };
     }
+  });
+  // server ping handler
+  ws.addEventListener("ping", () => {
+    ws.pong();
+  });
+  // yield results
+  for await (const chunk of readable) {
+    yield chunk;
   }
 }

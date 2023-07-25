@@ -1,5 +1,5 @@
-import { getPDFContent } from "./utils.ts";
-import { smartSplit } from "../utils.ts";
+import { getPDFContent } from "./utils.js";
+import { smartSplit } from "../utils.js";
 
 for await (const chunk of smartSplit(
   getPDFContent(

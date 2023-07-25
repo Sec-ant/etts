@@ -42,9 +42,9 @@
     "build": "bun run build:bun && bun run build:node",
     "prebuild:refetch": "bun run prepare",
     "build:refetch": "bun run build",
-    "preview": "node ./dist/node/bin/main.js",
-    "preview:node": "node ./dist/node/bin/main.js",
+    "preview:node": "node --trace-uncaught ./dist/node/bin/main.js",
     "preview:bun": "bun ./dist/bun/bin/main.js",
+    "preview": "bun run preview:node",
     "dev": "bun ./src/bin/main.ts"
   },
   "repository": {
@@ -75,6 +75,7 @@
   },
   "dependencies": {
     "assert-never": "^1.2.1",
+    "fast-content-type-parse": "^1.0.0",
     "pdfjs-dist": "^3.8.162",
     "ws": "^8.13.0"
   }

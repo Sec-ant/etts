@@ -1,5 +1,5 @@
-import { escapeHTML } from "bun";
+import { escapeHTML as escapeHtml } from "bun";
 
 const WebSocketBun = WebSocket;
 
-export { WebSocketBun as WebSocket, escapeHTML as escapeXML };
+export { WebSocketBun as WebSocket, escapeHtml as escapeXml };

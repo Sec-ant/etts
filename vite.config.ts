@@ -44,7 +44,9 @@ export default defineConfig({
         order: "post",
         handler: async (code, _, { format }) => {
           if (format === "es") {
-            return await transform(code, { minify: true });
+            return await transform(code, {
+              minify: true,
+            });
           }
           return code;
         },
